@@ -1,0 +1,91 @@
+import RPi.GPIO as GPIO
+import sms
+import time,sys
+import Adafruit_DHT
+import ts
+import flowmeter
+sensor = Adafruit_DHT.DHT11
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+gas=21
+pin = 20
+frzz=6
+FLOW_SENSOR=12
+GPIO.setup(gas,GPIO.IN)
+GPIO.setup(frzz,GPIO.IN)
+#sms.sendsms(&#39;Your Kit started working&#39;,&#39;9182772546&#39;)
+flag=0
+while True:
+h,t = Adafruit_DHT.read_retry(sensor, pin)
+print(&quot;Temp:&quot;+str(t))
+
+print(&quot;Humidity:&quot;+str(h))
+ts.sensorUpload(int(h),&#39;field2&#39;)
+time.sleep(3)
+ts.sensorUpload(int(t),&#39;field1&#39;)
+time.sleep(3)
+if GPIO.input(gas)==0:
+print &#39;Gas Detetced&#39;
+sms.sendsms(&#39;Help !!! gas Leakage&#39;,&#39;9182772546&#39;)
+else:
+print &#39;Safe&#39;
+if GPIO.input(frzz)==1 and flag==0:
+print &#39;Open&#39;
+open1=time.time()
+flag=1
+elif GPIO.input(frzz)==1 and flag==1:
+open2=time.time()
+if open2-open1&gt;=5:
+sms.sendsms(&quot;your fridge door is open&quot;,&quot;9182772546&quot;)
+flag=0
+time.sleep(1)
+7.2 Maincode1.py:(Code:NIIOTITA7)
+import RPi.GPIO as GPIO
+import time
+
+import paho.mqtt.client as mqtt
+GPIO.setwarnings(False)
+relay=16
+servo=13
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(relay,GPIO.OUT)
+GPIO.setup(26,GPIO.OUT)
+GPIO.setup(19,GPIO.OUT)
+GPIO.setup(servo, GPIO.OUT)
+GPIO.output(relay,1)
+GPIO.output(26,0)
+GPIO.output(19,0)
+client=mqtt.Client()
+client.connect(&#39;iot.eclipse.org&#39;,1883)
+print(&#39;Client Connected to Subscriber&#39;)
+p = GPIO.PWM(13, 50)
+p.start(2.5)
+p.ChangeDutyCycle(2.5)
+def on_message(client, userdata, msg):
+print(msg.topic+&quot; &quot;+str(msg.payload))
+print(&#39;Received From : &#39;+msg.topic)
+print(&#39;Received Msg : &#39;+str(msg.payload))
+t=str(msg.payload)
+if t==&#39;on&#39;:
+GPIO.output(relay,0)
+elif t==&#39;off &#39;:
+GPIO.output(relay,1)
+if t==&#39;open&#39;:
+GPIO.output(26,1)
+GPIO.output(19,0)
+time.sleep(2)
+GPIO.output(26,0)
+GPIO.output(19,0)
+if t==&#39;dooropen&#39;:
+p.ChangeDutyCycle(7.5)
+elif t==&#39;doorclose&#39;:
+p.ChangeDutyCycle(2.5)
+def publishmessage(token,msg):
+client.publish(token,msg)
+print (&#39;msg send&#39;)
+def read_msg(stoken):
+client.subscribe(stoken)
+print (&quot;waiting for msg..&quot;)
+client.on_message = on_message
+client.loop_forever()
+publishmessage(&#39;NIIOTITA7&#39;,&#39;HI from Bulb&#39;)
